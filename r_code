@@ -81,18 +81,6 @@ datos %>%
 # Histograms --------------------------------------------------------------
 datos %>%
   filter (year %in% years ) %>%
-  group_by(year) %>%
-  mutate(weight = population_total/sum(population_total*2)) %>%
-  mutate(group = ifelse(region %in% west, "West", "Developing"))  %>%
-  ggplot(aes(co2_emissions_tonnes_per_person, fill = region)) +
-  scale_x_continuous(trans = "log2") +
-  geom_histogram( bins = 10, position = "stack") + facet_grid(group ~ year)  +
-  theme_economist()+ theme(legend.position="bottom" )+
-labs(title="Weight histogram plot",x="Weight(kg)", y = "Count")+
-
-  # Histograms --------------------------------------------------------------
-datos %>%
-  filter (year %in% years ) %>%
   mutate(group = ifelse(region %in% west, "West", "Developing"))  %>%
   ggplot(aes(co2_emissions_tonnes_per_person, fill = region)) +
   scale_x_continuous(trans = "log2") +
@@ -127,3 +115,4 @@ fig <- fig %>% layout(
 )
 
 fig
+
