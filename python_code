@@ -16,12 +16,10 @@ output_file = 'gapminder_data.csv'
 #%% IMPORT FILES
 #Import all files - unpivot - add a new column for the metric using the file name. Then replace any na with 0
 
-# df = pd.DataFrame()
+df = pd.DataFrame()
 # for i in input_files:
 #     df[i] = pd.read_csv(i).melt(id_vars=['country'], var_name='year', value_name=i).set_index(['country', 'year']).dropna()
 
-
-df = pd.DataFrame()
 for i in input_files:
     df[i] = pd.read_csv(input_folder+i).melt(id_vars=['country'], var_name='year', value_name=i).set_index(['country', 'year']).dropna()
 
@@ -69,6 +67,8 @@ for i in range(lenght):
     df.iloc[:,i]
 
 
+type(df.iloc[15000,3])
+    
 #%% Asign a region for each country
 
 #to be run just once - to get a summary of all the countries needed
@@ -95,3 +95,4 @@ summaries.to_csv(output_folder + 'summary.csv')
   
 # saving the csv
 df.to_csv(output_folder + output_file)
+
