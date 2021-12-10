@@ -1,1 +1,84 @@
+library(readr)
+library(plotly)
+library(dplyr)
+library(ggplot2)
+library(ggridges)
+
+
+# Read the file ----------------------------------------------------------
+
+datos <- read_csv("Gapminder_data_project/output/gapminder_data.csv", 
+                                    col_types = cols(X1 = col_skip()))
+colnames(datos)
+
+
+# variables set up (for filtering / grouping) -----------------------------
+years = c(1970,2000,2018)
+west = c("North America", "Europe", "Oceania")
+
+
+# Boxplots ----------------------------------------------------------------
+
+#Boxplot of co2 emmisions per person in 1970 and 2015 per region
+
+filter(datos, year %in% years ) %>%
+  ggplot( aes(region, co2_emissions_tonnes_per_person, fill = year)) +
+  geom_boxplot()+ geom_point(show.legend = FALSE)+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + facet_grid(.~year)+ scale_y_continuous(trans = "log2") 
+
+
+# Density plots -----------------------------------------------------------
+#co2 emissions per person using ggridges
+
+datos %>%
+  filter(year %in% years ) %>%  mutate(group = ifelse(region %in% west, "West", "Developing")) %>% group_by(group) %>%
+  ggplot(aes(co2_emissions_tonnes_per_person, group)) + facet_grid(.~year)+ scale_x_continuous(trans = "log2") +
+  scale_x_continuous(trans = "log2")+ geom_density_ridges()+ geom_density_ridges(jittered_points = TRUE)
+
+datos %>%
+  filter(year %in% years ) %>%
+  ggplot(aes(co2_emissions_tonnes_per_person, region), fill=region) + facet_grid(.~year)+ scale_x_continuous(trans = "log2") +
+  scale_x_continuous(trans = "log2")+ geom_density_ridges()+ geom_density_ridges(jittered_points = TRUE)
+
+# smooth density plots - co2 emissions per person using geom_density()
+datos %>%
+  filter (year %in% years ) %>%
+  mutate(group = ifelse(region %in% west, "West", "Developing"))  %>%
+  ggplot(aes(co2_emissions_tonnes_per_person, fill = region, col = region)) +
+  scale_x_continuous(trans = "log2") + 
+  geom_density(alpha = 0.2, bw = 0.75) + 
+  facet_grid(group ~ year) +
+  ggtitle("CO2 emission per person over time")
+
+#stack density chart
+datos %>%
+  filter (year %in% years ) %>%
+  mutate(group = ifelse(region %in% west, "West", "Developing"))  %>%
+  ggplot(aes(co2_emissions_tonnes_per_person, fill = region, col = region)) +
+  scale_x_continuous(trans = "log2") + 
+  geom_density(alpha = 0.2, bw = 0.75, position = 'stack') + 
+  facet_grid(group ~ year) +
+  ggtitle("CO2 emission per person over time")
+
+# weighted stacked density plot (weighted by population)
+datos %>%
+  filter (year %in% years ) %>%
+  group_by(year) %>%
+  mutate(weight = population_total/sum(population_total*2)) %>%
+  mutate(group = ifelse(region %in% west, "West", "Developing"))  %>%
+  ggplot(aes(co2_emissions_tonnes_per_person, fill = region, weight = weight)) +
+  scale_x_continuous(trans = "log2") +
+  geom_density(alpha = 0.2, bw = 0.75, position = "stack") + facet_grid(group ~ year) 
+
+
+
+
+
+#to obtain the number of countries in each group
+datos %>%
+  filter (year %in% years ) %>%
+  mutate(group = ifelse(region %in% west, "West", "Developing")) %>% group_by(group) %>%
+  summarize(n = n()) %>% knitr::kable()  #
+
+
 
