@@ -3,7 +3,7 @@ library(plotly)
 library(dplyr)
 library(ggplot2)
 library(ggridges)
-
+library(ggthemes)
 
 # Read the file ----------------------------------------------------------
 
@@ -71,9 +71,6 @@ datos %>%
   geom_density(alpha = 0.2, bw = 0.75, position = "stack") + facet_grid(group ~ year) 
 
 
-
-
-
 #to obtain the number of countries in each group
 datos %>%
   filter (year %in% years ) %>%
@@ -81,4 +78,52 @@ datos %>%
   summarize(n = n()) %>% knitr::kable()  #
 
 
+# Histograms --------------------------------------------------------------
+datos %>%
+  filter (year %in% years ) %>%
+  group_by(year) %>%
+  mutate(weight = population_total/sum(population_total*2)) %>%
+  mutate(group = ifelse(region %in% west, "West", "Developing"))  %>%
+  ggplot(aes(co2_emissions_tonnes_per_person, fill = region)) +
+  scale_x_continuous(trans = "log2") +
+  geom_histogram( bins = 10, position = "stack") + facet_grid(group ~ year)  +
+  theme_economist()+ theme(legend.position="bottom" )+
+labs(title="Weight histogram plot",x="Weight(kg)", y = "Count")+
 
+  # Histograms --------------------------------------------------------------
+datos %>%
+  filter (year %in% years ) %>%
+  mutate(group = ifelse(region %in% west, "West", "Developing"))  %>%
+  ggplot(aes(co2_emissions_tonnes_per_person, fill = region)) +
+  scale_x_continuous(trans = "log2") +
+  geom_histogram( bins = 10, position = "stack") + facet_grid(group ~ year)  +
+  theme_economist()+ theme(legend.position="bottom" )+
+  labs(title="C02 emissions per person",x="Co2 emissions", y = "Count")
+
+
+
+# Animated plot - time series ----------------------------------------------
+
+
+library(plotly)
+
+df <- datos %>% filter(year >=1970 & population_total >=40000000) %>% mutate(log(co2_emissions_tonnes_per_person), log(population_total), log(yearly_co2_emissions_1000_tonnes)) 
+fig <- df %>%
+  plot_ly(
+    x = ~co2_emissions_tonnes_per_person, 
+    y = ~yearly_co2_emissions_1000_tonnes, 
+    size = ~population_total, 
+    color = ~region, 
+    frame = ~year, 
+    text = ~country, 
+    hoverinfo = "text",
+    type = 'scatter',
+    mode = 'markers'
+  )
+fig <- fig %>% layout(
+  xaxis = list(
+    type = "log2"
+  ), yaxis = list(type="log2")
+)
+
+fig
