@@ -13,22 +13,82 @@ colnames(datos)
 
 
 # variables set up (for filtering / grouping) -----------------------------
-years = c(1970,2000,2018)
+years = c(1950,1980,2000,2018)
 west = c("North America", "Europe", "Oceania")
 
 
 # Boxplots ----------------------------------------------------------------
 
-#Boxplot of co2 emmisions per person in 1970 and 2015 per region
+#Boxplot of co2 emisions per person in 1970 and 2015 per region
 
-filter(datos, year %in% years ) %>%
-  ggplot( aes(region, co2_emissions_tonnes_per_person, fill = year)) +
-  geom_boxplot()+ geom_point(show.legend = FALSE)+
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + facet_grid(.~year)+ scale_y_continuous(trans = "log2") 
+filter(datos, year %in% years )%>%
+  mutate(group = ifelse(region %in% west, "West", "Developing"))  %>%
+  ggplot( aes(region, co2_emissions_tonnes_per_person, 
+              fill = factor(year))) +
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+  scale_y_continuous(trans = "log2") +
+  theme_economist()+ theme(legend.position="bottom" ,legend.title=element_blank())+
+  labs(title="co2 emissions per person (tones)",x="", y = "")
+
+#boxplot child mortality per continent
+filter(datos, year %in% years )%>%
+  mutate(group = ifelse(region %in% west, "West", "Developing"))  %>%
+  ggplot( aes(region, child_mortality_0_5_year_olds_dying_per_1000_born, 
+              fill = factor(year))) +
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+  scale_y_continuous(trans = "log2") +
+  theme_economist()+ theme(legend.position="bottom" ,legend.title=element_blank())+
+  labs(title="Child mortality 0-5 yrs (per 1000 born)",x="", y = "")
+
+
+datos %>% filter(year<=2018 & year >=1910 )%>%
+  group_by(region, year) %>% 
+  summarise(mortality_rate = mean(child_mortality_0_5_year_olds_dying_per_1000_born)) %>%
+  ggplot(aes( year ,mortality_rate, fill =region, color=region)) +
+  geom_line()+geom_point()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+  scale_y_continuous(trans = "sqrt") +
+  theme_economist()+ 
+  labs(title="Child mortality 0-5 yrs (per 1000 born)",x="", y = "")+
+theme(legend.position="bottom" ,legend.title=element_blank())
+
+
+
+#Child mortality in Africa
+
+filter(datos, year %in% years & region =="Africa" )%>%
+  ggplot( aes(sub_region, child_mortality_0_5_year_olds_dying_per_1000_born, 
+              fill = factor(year))) +
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+  scale_y_continuous(trans = "log2") +
+  theme_economist()+ theme(legend.position="bottom" ,legend.title=element_blank())+
+  labs(title="Child mortality 0-5 yrs (per 1000 born) Africa only",x="", y = "")+
+  theme(axis.text.y = element_text(size=9) ,
+        axis.text.x = element_text(angle=45,vjust=0.8, size=9),
+        legend.position = "bottom",  legend.text = element_text(size=9),
+        plot.title = element_text(hjust = 0.5))
+#Child mortality in Asia
+
+filter(datos, year %in% years & region =="Asia" )%>%
+  ggplot( aes(sub_region, child_mortality_0_5_year_olds_dying_per_1000_born, 
+              fill = factor(year))) +
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+  scale_y_continuous(trans = "log2") +
+  theme_economist()+ theme(legend.position="bottom" ,legend.title=element_blank())+
+  labs(title="Child mortality 0-5 yrs (per 1000 born) Africa only",x="", y = "")+
+  theme(axis.text.y = element_text(size=9) ,
+        axis.text.x = element_text(angle=45,vjust=0.8, size=9),
+        legend.position = "bottom",  legend.text = element_text(size=9),
+        plot.title = element_text(hjust = 0.5))
 
 
 # Density plots -----------------------------------------------------------
 #co2 emissions per person using ggridges
+
 
 datos %>%
   filter(year %in% years ) %>%  mutate(group = ifelse(region %in% west, "West", "Developing")) %>% group_by(group) %>%
@@ -44,10 +104,20 @@ datos %>%
 datos %>%
   filter (year %in% years ) %>%
   mutate(group = ifelse(region %in% west, "West", "Developing"))  %>%
-  ggplot(aes(co2_emissions_tonnes_per_person, fill = region, col = region)) +
+  ggplot(aes(yearly_co2_emissions_1000_tonnes, fill = region, col = region)) +
   scale_x_continuous(trans = "log2") + 
   geom_density(alpha = 0.2, bw = 0.75) + 
   facet_grid(group ~ year) +
+  ggtitle("CO2 emission per person over time")
+
+
+datos %>%
+  filter (year %in% years ) %>%
+  mutate(group = ifelse(region %in% west, "West", "Developing"))  %>%
+  ggplot(aes(co2_emissions_tonnes_per_person, fill = region, col = region)) +
+  scale_x_continuous(trans = "log2") + 
+  geom_density(alpha = 0.2, bw = 0.75) + 
+  facet_grid(. ~ year) +
   ggtitle("CO2 emission per person over time")
 
 #stack density chart
@@ -83,17 +153,75 @@ datos %>%
   filter (year %in% years ) %>%
   mutate(group = ifelse(region %in% west, "West", "Developing"))  %>%
   ggplot(aes(co2_emissions_tonnes_per_person, fill = region)) +
-  scale_x_continuous(trans = "log2") +
-  geom_histogram( bins = 10, position = "stack") + facet_grid(group ~ year)  +
-  theme_economist()+ theme(legend.position="bottom" )+
-  labs(title="C02 emissions per person",x="Co2 emissions", y = "Count")
+  scale_x_continuous(trans = "log2", labels = comma) +
+  geom_histogram( bins = 30, position = "stack") + 
+  facet_grid(group ~ year)  +
+  theme_economist()+ theme(legend.position="bottom" ,legend.title=element_blank())+
+  labs(title="C02 emissions per person",x="", y = "")
 
 
+# Data over time ----------------------------------------------------------
+
+countries =c("United Kingdom", "China", "India", "France","Brazil","Indonesia", "Canada", "United States")
+datos %>% filter(country %in% countries & year <=2018)%>%
+  mutate(group = ifelse(region %in% west, "West", "Developing"))   %>% 
+  ggplot(aes(year, yearly_co2_emissions_1000_tonnes, 
+             col=country, fill=country))+
+  geom_line(linetype = "dashed")+
+  geom_point()+
+  ggtitle("Yearly co2 emissions by country (tonnes k)")+
+  labs(x="", y = "") + 
+  theme_economist()+ 
+  theme(legend.title=element_blank()) +
+  scale_y_continuous(labels=comma, trans = "log2") + 
+  theme(axis.text.y = element_text(size=9) ,
+        axis.text.x = element_text(angle=90,vjust=0.5, size=9),
+        legend.position = "bottom",  legend.text = element_text(size=8),
+        plot.title = element_text(hjust = 0.5))
+
+
+
+countries =c("United Kingdom", "China", "India", "France", "Canada")
+datos %>% filter(year %in% years)%>%
+  mutate(group = ifelse(region %in% west, "West", "Developing"))   %>% 
+  ggplot(aes(co2_emissions_tonnes_per_person, yearly_co2_emissions_1000_tonnes, 
+             col=region, fill=region))+ geom_point()+
+  ggtitle("Yearly co2 emissions by country")+ facet_wrap(group~year)+
+  labs(x="", y = "") + 
+  theme(legend.title=element_blank()) +
+  scale_y_continuous(labels=comma, trans = "log2") + 
+  theme(axis.text.y = element_text(size=9) ,
+        axis.text.x = element_text(angle=90,vjust=0.5, size=9),
+        legend.position = "bottom",  legend.text = element_text(size=8),
+        plot.title = element_text(hjust = 0.5))
+
+library(scales)
 
 # Animated plot - time series ----------------------------------------------
 
 
 library(plotly)
+
+df <- datos %>% filter((country %in% countries)& year >1950) 
+fig <- df %>%
+  plot_ly(
+    x = ~co2_emissions_tonnes_per_person, 
+    y = ~yearly_co2_emissions_1000_tonnes, 
+    size = ~population_total, 
+    color = ~country, 
+    frame = ~year, 
+    text = ~country, 
+    hoverinfo = "text",
+    type = 'scatter',
+    mode = 'markers'
+  )
+fig <- fig %>% layout(
+  xaxis = list(
+    type = "log2"
+  ), yaxis = list(type="log2")
+)
+
+fig
 
 df <- datos %>% filter(year >=1970 & population_total >=40000000) %>% mutate(log(co2_emissions_tonnes_per_person), log(population_total), log(yearly_co2_emissions_1000_tonnes)) 
 fig <- df %>%
@@ -115,4 +243,3 @@ fig <- fig %>% layout(
 )
 
 fig
-
