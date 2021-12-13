@@ -5,16 +5,210 @@ library(ggplot2)
 library(ggridges)
 library(ggthemes)
 
+
 # Read the file ----------------------------------------------------------
 
 datos <- read_csv("Gapminder_data_project/output/gapminder_data.csv", 
                                     col_types = cols(X1 = col_skip()))
+
+
 colnames(datos)
+datos$corruption_perception_index_cpi = datos$corruption_perception_index_cpi + datos$corruption_perception_index_cpi_pre2012
 
 
 # variables set up (for filtering / grouping) -----------------------------
 years = c(1950,1980,2000,2018)
 west = c("North America", "Europe", "Oceania")
+
+# add group as a factor, grouping regions / countries
+datos <- datos %>%
+  mutate(group = case_when(
+    .$country =="China" ~ "China",
+    .$country =="India" ~ "India",
+    .$country =="United States" ~ "United States",
+    .$region =="Europe" ~"Europe",
+    TRUE ~ "Others"))
+
+# reorder factor levels
+datos <- datos %>%
+  mutate(group = factor(group, levels = c("China","United States", "India", "Europe", "Others")))
+
+# cols <- c("#D43F3A", "#EEA236", "#5CB85C", "#46B8DA", "#9632B8")
+
+
+# C02 emissions work ------------------------------------------------------
+
+
+datos %>% group_by(group) %>% summarise(sum(yearly_co2_emissions_1000_tonnes))
+
+datos %>% 
+  group_by(group, region, year) %>%   filter(group !="Others"& year <= 2018& year >= 1900) %>%
+  summarise(mean_of_x= mean(yearly_co2_emissions_1000_tonnes)) %>%
+  ggplot(aes(year,  mean_of_x, fill = group, color = group)) +  
+  geom_line(size=2)+
+ggtitle("yearly_co2_emissions_1000_tonnes") +  
+  labs(x="", y = "") + 
+  theme(legend.title=element_blank()) +
+  theme(axis.text.y = element_text(size=9) ,
+        axis.text.x = element_text(angle=90,vjust=0.5, size=9),
+        plot.title = element_text(hjust = 0.5)) +
+  scale_color_manual(values = cols)
+
+#Emisiones totales - log
+
+  datos %>% 
+  group_by(group, region, year) %>%   filter(group !="Others"& year <= 2018& year >= 1910) %>%
+  summarise(mean_of_x= mean(yearly_co2_emissions_1000_tonnes)) %>%
+  ggplot(aes(year,  mean_of_x, fill = group, color = group)) +  
+  geom_line(size=2)+
+scale_y_continuous(trans = "log2")+
+  ggtitle("yearly_co2_emissions_1000_tonnes")+
+  labs(x="", y = "") + 
+  theme(legend.title=element_blank()) +
+  theme(axis.text.y = element_text(size=9) ,
+        axis.text.x = element_text(angle=90,vjust=0.5, size=9),
+        plot.title = element_text(hjust = 0.5)) +
+    scale_color_manual(values = cols)
+
+#Emisiones per capita
+  datos %>% 
+    group_by(group, region, year) %>%   filter(group !="Others"& year <= 2018& year >= 1910) %>%
+    summarise(mean_of_x= mean(co2_emissions_tonnes_per_person)) %>%
+    ggplot(aes(year,  mean_of_x, fill = group, color = group)) +  
+    geom_line(size=2)+
+    ggtitle("co2_emissions_tonnes_per_person")+
+    scale_y_continuous(trans = "log2")+
+    labs(x="", y = "") + 
+    theme(legend.title=element_blank()) +
+    theme(axis.text.y = element_text(size=9) ,
+          axis.text.x = element_text(angle=90,vjust=0.5, size=9),
+          plot.title = element_text(hjust = 0.5)) +
+    scale_color_manual(values = cols)
+
+#corruption index
+  datos %>% 
+    group_by(year, group, region, sub_region) %>%   
+    filter(corruption_perception_index_cpi>0 & year < 2018 & year >= 2012) %>%
+    summarise(mean_of_x= mean(corruption_perception_index_cpi)) %>%
+    ggplot(aes(year,  mean_of_x, color = sub_region)) +  
+    geom_line(size=2)+
+    ggtitle("corruption_perception_index_cpi")+
+    labs(x="", y = "") + 
+    theme(legend.title=element_blank()) +
+    theme(axis.text.y = element_text(size=9) ,
+          axis.text.x = element_text(angle=90,vjust=0.5, size=9),
+          plot.title = element_text(hjust = 0.5)) 
+
+  
+
+# Create a world map ------------------------------------------------------
+require(maps)
+require(viridis)
+theme_set(    theme_void()  )
+
+
+world_map <- map_data("world")
+
+ggplot(world_map, aes(x = long, y = lat, group = group)) +
+    geom_polygon(fill="lightgray", colour = "white")
+
+world_map_label <- world_map %>%
+  group_by(region) %>%
+  summarise(long = mean(long), lat = mean(lat))
+
+datos %>%  filter(year == 2017) %>%
+    mutate(   country = ifelse(country == "United States", "USA", country)  )  %>%
+  mutate(   country = ifelse(country == "Congo, Dem. Rep.", "Democratic Republic of the Congo", country)  )  %>%
+    ggplot( aes(map_id = country)) +
+    geom_map(aes(fill = corruption_perception_index_cpi), map = world_map,  color = "white") +
+    expand_limits(x = world_map$long, y = world_map$lat)+
+    scale_fill_viridis_c(option = "D") +
+    # geom_text(aes(label = region), data = world_map_label,  size = 3, hjust = 0.5)+
+   # theme_void()+
+    theme(legend.position = "none",plot.title = element_text(hjust = 0.5)) +
+    ggtitle("Corruption perception index")
+
+
+datos %>% 
+  group_by(region,country, year) %>%  
+  summarise(demox_eiu= mean(demox_eiu), corruption_perception_index_cpi=mean(corruption_perception_index_cpi)) %>%
+  filter(!is.na(demox_eiu) & demox_eiu>0 & year==2017) %>%
+  ggplot(aes(demox_eiu, corruption_perception_index_cpi), fill=country, color=country) +
+  geom_point(size=2, color="red") +
+  # facet_grid(.~region)+
+  ggtitle("Democracy index vs Corruption index")+
+  labs(x="", y = "") +
+  # theme(legend.title=element_blank()) +
+  # theme(axis.text.y = element_text(size=9) ,
+  #       axis.text.x = element_text(angle=90,vjust=0.5, size=9),
+  #       plot.title = element_text(hjust = 0.5)) + 
+  theme_economist()
+
+
+
+# Scatter plots ------------------------------------------------------------
+
+#Fertility vs population
+
+datos %>% 
+  group_by(region, country, year) %>%  
+  summarise(children_per_woman_total_fertility= mean(children_per_woman_total_fertility), population_total=mean(population_total)) %>%
+  filter(!is.na(children_per_woman_total_fertility) & population_total>0 & year%in%c(1945,1960,1990,2000)) %>%
+  ggplot(aes(children_per_woman_total_fertility, population_total), fill=region, color=region) +
+  geom_point(size=2, shape=21) +
+  facet_grid(region~year)+
+  scale_y_continuous(trans = "log2") +
+  ggtitle("Children per woman")+
+  labs(x="", y = "") + 
+  # theme(legend.title=element_blank()) +
+  theme(axis.text.y = element_text(size=9) ,
+        axis.text.x = element_text(angle=90,vjust=0.5, size=9),
+        plot.title = element_text(hjust = 0.5)) 
+
+
+#Children per woman over time
+datos %>% 
+  group_by(region, year) %>% filter(year <= 2018 & year >=1900)%>%
+  summarise(woman_fertility= mean(children_per_woman_total_fertility)) %>%
+  ggplot(aes(year, woman_fertility, fill= region, color=region)) +
+  geom_line(size=2) +
+  ggtitle("Children per woman")+
+  labs(x="", y = "") + 
+  theme(legend.title=element_blank()) +
+  theme(axis.text.y = element_text(size=10) ,
+        axis.text.x = element_text(angle=90,vjust=0.5, size=10),
+        legend.position = "bottom",  legend.text = element_text(size=10),
+        plot.title = element_text(hjust = 0.5)) + theme_wsj()
+
+
+
+#Children per woman over time - Eruope only
+datos %>% 
+  group_by(region, year,country) %>% filter(region =="Europe"& year <= 2018 & year >=1900)%>%
+  summarise(woman_fertility= mean(children_per_woman_total_fertility)) %>%
+  ggplot(aes(year, woman_fertility, fill= country, color=country)) +
+  geom_line(size=2) +
+  ggtitle("Children per woman")+
+  labs(x="", y = "") + 
+  theme(legend.title=element_blank()) +
+  theme(axis.text.y = element_text(size=10) ,
+        axis.text.x = element_text(angle=90,vjust=0.5, size=10),
+        legend.position = "bottom",  legend.text = element_text(size=10),
+        plot.title = element_text(hjust = 0.5))
+
+#Population over time
+datos %>% 
+  group_by(region, year)%>% filter(year<=2018) %>%
+  summarise(population_total= mean(population_total)) %>%
+  ggplot(aes(year, population_total, fill= region, color=region)) +
+  geom_line(size=2) +
+  ggtitle("Total World population")+  geom_point()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + 
+  theme_economist()+ 
+  labs(x="", y = "")+
+  theme(legend.position="bottom" ,legend.title=element_blank())
+
+
 
 
 # Boxplots ----------------------------------------------------------------
@@ -33,7 +227,6 @@ filter(datos, year %in% years )%>%
 
 #boxplot child mortality per continent
 filter(datos, year %in% years )%>%
-  mutate(group = ifelse(region %in% west, "West", "Developing"))  %>%
   ggplot( aes(region, child_mortality_0_5_year_olds_dying_per_1000_born, 
               fill = factor(year))) +
   geom_boxplot()+
@@ -53,7 +246,6 @@ datos %>% filter(year<=2018 & year >=1910 )%>%
   theme_economist()+ 
   labs(title="Child mortality 0-5 yrs (per 1000 born)",x="", y = "")+
 theme(legend.position="bottom" ,legend.title=element_blank())
-
 
 
 #Child mortality in Africa
@@ -91,14 +283,15 @@ filter(datos, year %in% years & region =="Asia" )%>%
 
 
 datos %>%
-  filter(year %in% years ) %>%  mutate(group = ifelse(region %in% west, "West", "Developing")) %>% group_by(group) %>%
-  ggplot(aes(co2_emissions_tonnes_per_person, group)) + facet_grid(.~year)+ scale_x_continuous(trans = "log2") +
+  filter(year %in% years ) %>%  mutate(group = ifelse(region %in% west, "West", "Developing")) %>% 
+  ggplot(aes(co2_emissions_tonnes_per_person, group)) + facet_grid(.~year)+ 
   scale_x_continuous(trans = "log2")+ geom_density_ridges()+ geom_density_ridges(jittered_points = TRUE)
 
 datos %>%
   filter(year %in% years ) %>%
-  ggplot(aes(co2_emissions_tonnes_per_person, region), fill=region) + facet_grid(.~year)+ scale_x_continuous(trans = "log2") +
-  scale_x_continuous(trans = "log2")+ geom_density_ridges()+ geom_density_ridges(jittered_points = TRUE)
+  ggplot(aes(co2_emissions_tonnes_per_person, region), fill=region) +
+  facet_grid(.~year)+ 
+    scale_x_continuous(trans = "log2")+ geom_density_ridges()+ geom_density_ridges(jittered_points = TRUE)
 
 # smooth density plots - co2 emissions per person using geom_density()
 datos %>%
@@ -107,18 +300,14 @@ datos %>%
   ggplot(aes(yearly_co2_emissions_1000_tonnes, fill = region, col = region)) +
   scale_x_continuous(trans = "log2") + 
   geom_density(alpha = 0.2, bw = 0.75) + 
-  facet_grid(group ~ year) +
-  ggtitle("CO2 emission per person over time")
-
-
-datos %>%
-  filter (year %in% years ) %>%
-  mutate(group = ifelse(region %in% west, "West", "Developing"))  %>%
-  ggplot(aes(co2_emissions_tonnes_per_person, fill = region, col = region)) +
-  scale_x_continuous(trans = "log2") + 
-  geom_density(alpha = 0.2, bw = 0.75) + 
   facet_grid(. ~ year) +
   ggtitle("CO2 emission per person over time")
+
+
+
+
+
+
 
 #stack density chart
 datos %>%
@@ -129,6 +318,9 @@ datos %>%
   geom_density(alpha = 0.2, bw = 0.75, position = 'stack') + 
   facet_grid(group ~ year) +
   ggtitle("CO2 emission per person over time")
+
+
+
 
 # weighted stacked density plot (weighted by population)
 datos %>%
@@ -163,9 +355,9 @@ datos %>%
 # Data over time ----------------------------------------------------------
 
 countries =c("United Kingdom", "China", "India", "France","Brazil","Indonesia", "Canada", "United States")
-datos %>% filter(country %in% countries & year <=2018)%>%
+datos %>% filter( year <=2018)%>%
   mutate(group = ifelse(region %in% west, "West", "Developing"))   %>% 
-  ggplot(aes(year, yearly_co2_emissions_1000_tonnes, 
+  ggplot(aes(year, measles_deaths_in_children_1_59_months_total_deaths, 
              col=country, fill=country))+
   geom_line(linetype = "dashed")+
   geom_point()+
@@ -223,7 +415,8 @@ fig <- fig %>% layout(
 
 fig
 
-df <- datos %>% filter(year >=1970 & population_total >=40000000) %>% mutate(log(co2_emissions_tonnes_per_person), log(population_total), log(yearly_co2_emissions_1000_tonnes)) 
+df <- datos %>% filter(year >=1970 & population_total >=40000000) %>% 
+  mutate(log(co2_emissions_tonnes_per_person), log(population_total), log(yearly_co2_emissions_1000_tonnes)) 
 fig <- df %>%
   plot_ly(
     x = ~co2_emissions_tonnes_per_person, 
@@ -243,3 +436,26 @@ fig <- fig %>% layout(
 )
 
 fig
+
+
+
+
+# over time co2 emissions -------------------------------------------------
+
+datos %>% filter(year <=2018 & year >1950) %>% group_by(region, year) %>%
+  mutate(co2_emissions_tonnes_per_person= mean(co2_emissions_tonnes_per_person))%>%
+  ggplot(aes(year, co2_emissions_tonnes_per_person, fill = region, col = region)) +
+  geom_line( )+ 
+  ggtitle("CO2 emission per person over time") 
+
+datos %>% filter(year <=2018 & year >1950) %>% group_by(region, year) %>%
+  mutate(yearly_co2_emissions_1000_tonnes= mean(yearly_co2_emissions_1000_tonnes))%>%
+  ggplot(aes(year, yearly_co2_emissions_1000_tonnes, fill = region, col = region)) +
+  geom_line( )+ 
+  ggtitle("CO2 emission per person over time") 
+
+datos %>% filter(year <=2018  & country %in% c("China", "United Kingdom", "United States", "India")) %>% 
+  ggplot(aes(year, yearly_co2_emissions_1000_tonnes, fill = country, col = country)) +
+  geom_line( )+ facet_grid(country~.)+
+  ggtitle("CO2 emission per person over time") 
+
